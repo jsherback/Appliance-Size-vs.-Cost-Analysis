@@ -1,0 +1,131 @@
+---
+title: "Assignment 7"
+author: "Josh Sherback"
+date: "12/14/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#reading in dataset and showing structure.
+```{r}
+data <- read.csv("C:/Users/jsher/Downloads/Refrigerator.csv")
+data$BRANDNAM <- NULL
+str(data)
+```
+
+#
+
+#checking visually for correlation. It appears that they are all correlated to price and the refrigerator size and freezer size are inversely related (has decently strong correlation). This may be an issue in terms of multicolinearity.
+```{r}
+plot(data)
+```
+#
+
+#using cor() to quantify the correlation of all variables. electricity cost and freezer size are pretty highly correlated
+```{r}
+cor(data)
+```
+#
+
+#building a multiple regression, using all other variables to predict the price of the refrigerator. The formula would come out to be: PRICE = -874.36 - 6.1219 * ECOST + 65.061 * RSIZE + 124.55 * FSIZE + 46.074 * SHELVES + 8.916 * S_SQ_FT + 23.402 * FEATURES. To interpret the model, for a 1 unit raise in ECOST, the price is projected to go down about $6.12 and a 1 unit raise in FSIZE leads to a $124.55 price jump.THe multiple r squared value is 84.77% so it covers about that much of the variability in the dataset. All of our p values here are within a significant range at 5% except for the S_SQ_FT variable, which is 17%. This follows suit with the t values. You want a high t and a low p for a variable to be considered important. For this reason, I will make a separate regression without S_SQ_FT to see if it improves the R^2. Our f value is 27 which shows that this model has significance.
+```{r}
+model <- lm(PRICE ~ ECOST + RSIZE + FSIZE + SHELVES + S_SQ_FT + FEATURES, data = data)
+summary(model)
+```
+
+#
+
+#second model build without S_SQ_FT. Removing that variable actually did not help or hurt the model in any real way. It changed our coefficients a bit but our R^2 is a little bit lower too. However, our f-statistic went up and this means the model is more significant. For the sheer fact that it does not as accurately cover variability, I will continue using my original model.
+```{r}
+model2 <- lm(PRICE ~ ECOST + RSIZE + FSIZE + SHELVES + FEATURES, data = data)
+summary(model2)
+```
+#
+
+#third model build removing ECOST. Our f statistic and r^2 went down. This model is not superior to our original in any way. Keeping the first
+```{r}
+model3 <- lm(PRICE ~ RSIZE + FSIZE + SHELVES + S_SQ_FT + FEATURES, data = data)
+summary(model3)
+```
+#
+
+#It seems that with all of our variables having reasonably good t and p values, that the best model will be the full model. However, I would like to try a model that removes bot S_SQ_FT and ECOST and see how that affects our numbers.It did not improve our model because the R^2 went down. THe f statistic went up marginally, however it is on less degrees of freedom so we will take that with a grain of salt and still say that the original model is superior.
+```{r}
+model4 <- lm(PRICE ~ RSIZE + FSIZE + SHELVES + FEATURES, data = data)
+summary(model4)
+```
+
+#
+
+#Using aic function to check which model was in fact superior because it is an estimator of out-of-sample prediction error and thereby relative quality of statistical models for a given set of data. I was correct in my assumptions, our original model was the best, even if by a small amount. AIC being a lower value is a good thing.
+```{r}
+library(MASS)
+stepAIC(model, scope = list(upper = model, lower = model2), direction = "backward")
+AIC(model, model2, model3, model4)
+```
+#
+
+#checking for multicolinearity. ecost and fsize are both in the range that poses an issue. lets attempt one more model to see if it improves performance. it does not. R^2 is lower and so is the f statistic.
+```{r}
+library("car")
+vif(model)
+sqrt(vif(model)) > 2
+
+model5 <- lm(PRICE ~ RSIZE + SHELVES + S_SQ_FT + FEATURES, data = data)
+summary(model5)
+```
+#
+
+#checking global assumptions. it does not meet global and link function. checking for linearity. this model seems to be linear because there are no significant curvatures. checking for homoscedasticity. the p value is not consistent so we are good here. checking for outliers. we do not have any.
+```{r}
+library(gvlma)
+gvmodel <- gvlma(model)
+summary(gvmodel)
+crPlots(model)
+ncvTest(model)
+outlierTest(model)
+```
+#
+
+#doing hat plot to find high leverage
+```{r}
+hat.plot <- function(model){
+    p <- length(coefficients(model))
+    n <- length(fitted(model))
+    plot(hatvalues(model), main = "Index Plot of Hat Values")
+    abline(h = c(2, 3) * p/n, col = "red", lty = 2)
+    identify(1:n, hatvalues(model), names(hatvalues(model)))
+}
+
+hat.plot(model)
+```
+
+
+#creating a 95% confidence interval for the regression. This shows the projected change in price due to a 1 unit raise in all of these variables. as you can see, the range for both fridge and freezer size are very wide.
+```{r}
+confint(model)
+```
+#
+
+#It can be assumed without any doubt that the best model here is the full model. It has the lowest AIC and is superior in all of our other benchmark statistics (R^2, t, p and f statistic). It has its pitfalls when it comes to assumptions, however we should accept the model with skepticism. If this were a business setting we may want to try a different model.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
